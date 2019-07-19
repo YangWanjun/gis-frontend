@@ -1,7 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import App from './App';
-import './index.css';
+import GisMap from './GisMap';
+
+const App = () => {
+  <div>
+    <GisMap />
+  </div>
+};
 
 ReactDOM.render(
   <App />,
