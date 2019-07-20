@@ -1,0 +1,11 @@
+version: '3.7'
+services:
+  web:
+    image: node:alpine
+    container_name: mynode
+    ports:
+      - 3000:3000
+    volumes:
+      - ".:/gis-frontend"
+    working_dir: /gis-frontend
+    command: "npm start"

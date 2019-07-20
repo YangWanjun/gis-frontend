@@ -3,15 +3,14 @@ import OlMap from "ol/Map";
 import OlView from "ol/View";
 import OlLayerTile from "ol/layer/Tile";
 import OlSourceOSM from "ol/source/OSM";
-import {fromLonLat} from 'ol/proj';
 
 class GisMap extends React.Component {
   constructor(props) {
     super(props);
 
     this.state = {
-      center: [139.692101, 35.689634],
-      zoom: 12,
+      center: [-64593351.307108246, 4256749.793639174],
+      zoom: 13,
     };
 
     this.olmap = new OlMap({
@@ -22,7 +21,7 @@ class GisMap extends React.Component {
         })
       ],
       view: new OlView({
-        center: fromLonLat([28.9744, 41.0128]),
+        center: this.state.center,
         zoom: this.state.zoom
       })
     });
