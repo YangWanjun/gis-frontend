@@ -5,6 +5,7 @@
   "homepage": "https://yangwanjun.github.io/gis-frontend/",
   "dependencies": {
     "ol": "^5.3.3",
+    "proj4": "^2.5.0",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
     "react-scripts": "1.1.4"
