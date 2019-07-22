@@ -18,7 +18,6 @@ import {
 } from 'ol/interaction';
 import { WKT } from 'ol/format';
 import { createStringXY } from 'ol/coordinate';
-import Highlight from 'react-highlight.js';
 import withStyles from "@material-ui/core/styles/withStyles";
 import {
   Grid,
