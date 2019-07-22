@@ -17,6 +17,7 @@ import {
   MouseWheelZoom,
 } from 'ol/interaction';
 import { WKT } from 'ol/format';
+import { createStringXY } from 'ol/coordinate';
 import withStyles from "@material-ui/core/styles/withStyles";
 import {
   Grid,
@@ -138,11 +139,7 @@ class GisMap extends React.Component {
         new ScaleLine(),
         new MousePosition({
           projection: `EPSG:${config.map.srid}`,
-          // comment the following two lines to have the mouse position
-          // be placed within the map.
-          className: 'custom-mouse-position',
-          target: 'mouse-position',
-          undefinedHTML: '&nbsp;'
+          coordinateFormat: createStringXY(config.map.precision),
         }),
       ]),
       interactions: defaultInteraction({mouseWheelZoom: false}).extend([
