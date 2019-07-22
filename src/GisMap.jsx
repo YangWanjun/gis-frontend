@@ -35,7 +35,7 @@ import {
 } from '@material-ui/core';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import TabPanel from './component/TabPanel';
-import { config, common } from './utils';
+import { config, common, constant } from './utils';
 
 const styles = (theme) => ({
   map: {
@@ -60,10 +60,15 @@ const styles = (theme) => ({
     fontSize: theme.typography.pxToRem(15),
     color: theme.palette.text.secondary,
   },
+  tabsRoot: {
+    flexGrow: 1,
+    width: '100%',
+    backgroundColor: theme.palette.background.paper,
+  },
 })
 
 const mapNames = ['Road', 'AerialWithLabels', 'OSM'];
-const WKT_TYPE = ['wkt_point', 'wkt_line', 'wkt_polygon'];
+const WKT_TYPE = ['wkt_point', 'wkt_line', 'wkt_polygon', 'wkt_multipoint', 'wkt_multiline', 'wkt_multipolygon'];
 
 function wktTabProps(index) {
   return {
@@ -80,14 +85,18 @@ class GisMap extends React.Component {
     super(props);
 
     this.state = {
-      center: [139.692101, 35.689634],  // （東京都庁）
-      zoom: 13,
+      center: config.map.center,  // （東京都庁）
+      zoom: config.map.zoom,
+      boundary: {},
       data: {
         baseMap: 'Road',
-        wkt_point: 'POINT(139.747216 35.683765)',
-        wkt_line: 'LINESTRING(139.643065 35.69208, 139.645866 35.649539, 139.677008 35.646858)',
-        wkt_polygon: 'POLYGON ((139.709936 35.706894, 139.709166 35.693608, 139.742922 35.692582, 139.742221 35.721827, 139.709936 35.706894))',
-        wkt_srid: config.defaultSrid,
+        wkt_point: constant.WKT.POINT,
+        wkt_line: constant.WKT.LINE,
+        wkt_polygon: constant.WKT.PLOYGON,
+        wkt_multipoint: constant.WKT.MULTIPOINT,
+        wkt_multiline: constant.WKT.MULTILINE,
+        wkt_multipolygon: constant.WKT.MULTIPOLYGON,
+        wkt_srid: config.map.srid,
       },
       wktTabIndex: 0,
       expanded: 'basemap',
@@ -105,7 +114,7 @@ class GisMap extends React.Component {
           source: new OlBingMaps({
             visible: false,
             preload: Infinity,
-            key: config.bingMapKey,
+            key: config.map.bingMapKey,
             imagerySet: name,
             culture: 'ja-jp',
           })
@@ -119,7 +128,7 @@ class GisMap extends React.Component {
       layers: this.baseLayers,
       loadTilesWhileInteracting: true,
       view: new OlView({
-        projection: `EPSG:${config.defaultSrid}`,
+        projection: `EPSG:${config.map.srid}`,
         center: this.state.center,
         zoom: this.state.zoom,
         minZoom: 5,
@@ -128,7 +137,7 @@ class GisMap extends React.Component {
       controls: defaultControls({attribution: false}).extend([
         new ScaleLine(),
         new MousePosition({
-          projection: `EPSG:${config.defaultSrid}`,
+          projection: `EPSG:${config.map.srid}`,
           // comment the following two lines to have the mouse position
           // be placed within the map.
           className: 'custom-mouse-position',
@@ -152,14 +161,21 @@ class GisMap extends React.Component {
 
     // Listen to map changes
     this.olmap.on("moveend", () => {
-      let center = this.olmap.getView().getCenter();
-      let zoom = this.olmap.getView().getZoom();
+      const center = this.olmap.getView().getCenter();
+      const zoom = this.olmap.getView().getZoom();
+      const boundary = this.olmap.getView().calculateExtent();
       this.setState({
         center: [
-          Math.round(center[0] * 1000000) / 1000000,
-          Math.round(center[1] * 1000000) / 1000000,
+          common.round(center[0]),
+          common.round(center[1]),
         ],
         zoom,
+        boundary: {
+          left: common.round(boundary[0]),
+          bottom: common.round(boundary[1]),
+          right: common.round(boundary[2]),
+          top: common.round(boundary[3]),
+        }
       });
     });
   }
@@ -188,7 +204,7 @@ class GisMap extends React.Component {
 
     var feature = format.readFeature(wkt, {
       dataProjection: `EPSG:${srid}`,
-      featureProjection: `EPSG:${config.defaultSrid}`,
+      featureProjection: `EPSG:${config.map.srid}`,
     });
     feature.setId(id);
     this.vectorLayer.getSource().addFeature(feature);
@@ -248,7 +264,7 @@ class GisMap extends React.Component {
 
   render() {
     const { classes } = this.props;
-    const { center, zoom, data, wktTabIndex, expanded } = this.state;
+    const { center, zoom, boundary, data, wktTabIndex, expanded } = this.state;
 
     return (
       <Grid container spacing={1}>
@@ -262,6 +278,7 @@ class GisMap extends React.Component {
               <div id="mapInfo">
                 <div>center: {center[0]}, {center[1]}</div>
                 <div>zoom: {zoom}</div>
+                <div>boundary: {`{left: ${boundary.left}, buttom: ${boundary.bottom}, right: ${boundary.right}, top: ${boundary.top}}`}</div>
               </div>
             </Grid>
           </Grid>
@@ -278,7 +295,6 @@ class GisMap extends React.Component {
               className={classes.expansionHeader}
             >
               <Typography className={classes.heading}>BaseMap</Typography>
-              <Typography className={classes.secondaryHeading}>BingマップまたはOSMを表示</Typography>
             </ExpansionPanelSummary>
             <ExpansionPanelDetails>
               <RadioGroup
@@ -306,48 +322,34 @@ class GisMap extends React.Component {
               <Typography className={classes.heading}>WKT追加</Typography>
             </ExpansionPanelSummary>
             <ExpansionPanelDetails>
-              <div>
-                <Tabs value={wktTabIndex} onChange={this.handleWktTabChange}>
-                  <Tab label='POINT' {...wktTabProps(0)} />
-                  <Tab label='LINE' {...wktTabProps(1)} />
-                  <Tab label='POLYGON' {...wktTabProps(2)} />
+              <div className={classes.tabsRoot}>
+                <Tabs
+                  value={wktTabIndex}
+                  onChange={this.handleWktTabChange}
+                  variant="scrollable"
+                  scrollButtons="auto"
+                >
+                  {WKT_TYPE.map((wkt_type, key) => (
+                    <Tab key={key} label={common.trim(wkt_type, 'wkt_')} {...wktTabProps(key)} />
+                  ))}
                 </Tabs>
-                <TabPanel value={wktTabIndex} index={0}>
-                  <FormControl className={classes.FormControl}>
-                    <TextField
-                      name={WKT_TYPE[0]}
-                      multiline
-                      label='ＷＫＴ'
-                      value={data[WKT_TYPE[0]]}
-                      onChange={this.handleChange}
-                    />
-                  </FormControl>
-                </TabPanel>
-                <TabPanel value={wktTabIndex} index={1}>
-                  <FormControl className={classes.FormControl}>
-                    <TextField
-                      name={WKT_TYPE[1]}
-                      multiline
-                      label='ＷＫＴ'
-                      value={data[WKT_TYPE[1]]}
-                      onChange={this.handleChange}
-                    />
-                  </FormControl>
-                </TabPanel>
-                <TabPanel value={wktTabIndex} index={2}>
-                  <FormControl className={classes.FormControl}>
-                    <TextField
-                      name={WKT_TYPE[2]}
-                      multiline
-                      label='ＷＫＴ'
-                      value={data[WKT_TYPE[2]]}
-                      onChange={this.handleChange}
-                    />
-                  </FormControl>
-                </TabPanel>
+                {WKT_TYPE.map((wkt_type, key) => (
+                  <TabPanel key={key} value={wktTabIndex} index={key}>
+                    <FormControl className={classes.FormControl}>
+                      <TextField
+                        name={wkt_type}
+                        multiline
+                        label='ＷＫＴ'
+                        value={data[wkt_type]}
+                        onChange={this.handleChange}
+                      />
+                    </FormControl>
+                  </TabPanel>
+                ))}
                 <div>
                   <Button
                     variant="contained"
+                    color="primary"
                     className={classes.button}
                     onClick={this.handleAddWkt(WKT_TYPE[wktTabIndex])}
                   >
@@ -355,6 +357,7 @@ class GisMap extends React.Component {
                   </Button>
                   <Button
                     variant="contained"
+                    color="secondary"
                     className={classes.button}
                     onClick={this.handleRemoveWkt(WKT_TYPE[wktTabIndex])}
                   >

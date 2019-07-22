@@ -1,4 +1,9 @@
 export const config = {
-  bingMapKey: 'AuCWGrNDVbNclxqzFEsc7tSncptyHkPjj6U0wqJm8zg3txWqkJrmasnIEWg8guRd',
-  defaultSrid: 4326,
+  map: {
+    bingMapKey: 'AuCWGrNDVbNclxqzFEsc7tSncptyHkPjj6U0wqJm8zg3txWqkJrmasnIEWg8guRd',
+    srid: 4326,
+    center: [139.692101, 35.689634],
+    zoom: 13,
+    precision: 6,
+  },
 };
