@@ -18,6 +18,7 @@ import {
 } from 'ol/interaction';
 import { WKT } from 'ol/format';
 import { createStringXY } from 'ol/coordinate';
+import Highlight from 'react-highlight.js';
 import withStyles from "@material-ui/core/styles/withStyles";
 import {
   Grid,
@@ -37,11 +38,17 @@ import {
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import TabPanel from './component/TabPanel';
 import { config, common, constant } from './utils';
+import hljs from 'highlight.js/lib/highlight';
+import json from 'highlight.js/lib/languages/json';
+hljs.registerLanguage('json', json);
 
 const styles = (theme) => ({
   map: {
     width: '100%',
     height: 500,
+  },
+  mapInfo: {
+    width: '100%',
   },
   button: {
     marginRight: theme.spacing(1),
@@ -175,6 +182,12 @@ class GisMap extends React.Component {
         }
       });
     });
+
+    this.updateCodeSyntaxHighlighting();
+  }
+
+  componentDidUpdate() {
+    this.updateCodeSyntaxHighlighting();
   }
 
   changeBaseMap = (event) => {
@@ -259,9 +272,20 @@ class GisMap extends React.Component {
     this.clearWktFeature();
   };
 
+  outputMapInfo = () => {
+    const { center, zoom, boundary } = this.state;
+    return JSON.stringify({center, zoom, boundary}, null, '    ');
+  };
+
+  updateCodeSyntaxHighlighting = () => {
+    document.querySelectorAll("pre code").forEach(block => {
+      hljs.highlightBlock(block);
+    });
+  };
+
   render() {
     const { classes } = this.props;
-    const { center, zoom, boundary, data, wktTabIndex, expanded } = this.state;
+    const { data, wktTabIndex, expanded } = this.state;
 
     return (
       <Grid container spacing={1}>
@@ -271,13 +295,13 @@ class GisMap extends React.Component {
             </div>
           </Grid>
           <Grid container>
-            <Grid>
-              <div id="mapInfo">
-                <div>center: {center[0]}, {center[1]}</div>
-                <div>zoom: {zoom}</div>
-                <div>boundary: {`{left: ${boundary.left}, buttom: ${boundary.bottom}, right: ${boundary.right}, top: ${boundary.top}}`}</div>
-              </div>
-            </Grid>
+            <div id="mapInfo" className={classes.mapInfo}>
+              <pre>
+                <code className='json'>
+                  {this.outputMapInfo()}
+                </code>
+              </pre>
+            </div>
           </Grid>
         </Grid>
         <Grid item xs={12} sm={12} md={4}>
