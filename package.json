@@ -5,11 +5,13 @@
   "homepage": "https://yangwanjun.github.io/gis-frontend/",
   "dependencies": {
     "@material-ui/core": "^4.2.1",
+    "@material-ui/icons": "^4.2.1",
     "ol": "^5.3.3",
     "proj4": "^2.5.0",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
-    "react-scripts": "1.1.4"
+    "react-scripts": "1.1.4",
+    "sprintf-js": "^1.1.2"
   },
   "devDependencies": {
     "gh-pages": "^2.0.1"
