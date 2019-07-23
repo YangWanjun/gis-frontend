@@ -15,7 +15,7 @@ import {
   defaults as defaultInteraction,
   MouseWheelZoom,
 } from 'ol/interaction';
-import { WKT, GeoJSON } from 'ol/format';
+import { WKT } from 'ol/format';
 import { createStringXY } from 'ol/coordinate';
 import withStyles from "@material-ui/core/styles/withStyles";
 import {
@@ -205,8 +205,7 @@ class GisMap extends React.Component {
 
   addWktFeature = (id, wkt, srid) => {
     if (!this.wktVectorLayer) {
-      this.wktVectorLayer = geo_common.addLayer('wkt_layer');
-      this.olmap.addLayer(this.wktVectorLayer);
+      this.wktVectorLayer = geo_common.addLayer('wkt_layer', this.olmap);
     }
     var format = new WKT();
     var feature = format.readFeature(wkt, {
@@ -269,19 +268,19 @@ class GisMap extends React.Component {
     this.clearWktFeature();
   };
 
-  handleBoundaryChange = (boundary) => (event) => {
-    let pref_layer = geo_common.getLayerByName('pref_layer', this.olmap);
-    if (!pref_layer) {
-      pref_layer = geo_common.addLayer('pref_layer');
-      this.olmap.addLayer(pref_layer);
+  handleBoundaryChange = (layer_name) => (event) => {
+    if (event.target.checked) {
+      const { zoom, boundary } = this.state;
+      const layer_option = geo_common.getLayerOption(layer_name);
+      if (layer_option) {
+        common.fetchGet(layer_option.url, {zoom, boundary}).then(data => {
+          geo_common.addLayerGeoJson(layer_name, this.olmap, data);
+        }).catch(data => {
+        });
+      }
+    } else {
+      geo_common.clearLayer(layer_name, this.olmap);
     }
-    let format = new GeoJSON();
-    var feature = format.readFeatures(constant.GeoJSON.PREF, {
-      dataProjection: `EPSG:4326`,
-      featureProjection: `EPSG:${config.map.srid}`,
-    });
-    pref_layer.getSource().addFeatures(feature);
-    // this.olmap.getView().fit(feature.getGeometry(), this.olmap.getSize());
   };
 
   outputMapInfo = () => {
@@ -423,15 +422,15 @@ class GisMap extends React.Component {
               <div>
                 <FormGroup row>
                   <FormControlLabel
-                    control={<Checkbox onChange={this.handleBoundaryChange('pref')} />}
+                    control={<Checkbox onChange={this.handleBoundaryChange('pref_layer')} />}
                     label="都道府県"
                   />
                   <FormControlLabel
-                    control={<Checkbox />}
+                    control={<Checkbox onChange={this.handleBoundaryChange('city_layer')} />}
                     label="市区町村"
                   />
                   <FormControlLabel
-                    control={<Checkbox />}
+                    control={<Checkbox onChange={this.handleBoundaryChange('chome_layer')} />}
                     label="大字町丁目"
                   />
                 </FormGroup>

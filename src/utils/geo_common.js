@@ -1,5 +1,6 @@
 import { Vector as VectorLayer } from "ol/layer";
 import { Vector as VectorSource } from 'ol/source';
+import { GeoJSON } from 'ol/format';
 import {
   Style,
   Stroke,
@@ -7,6 +8,7 @@ import {
   Circle,
 } from 'ol/style';
 import { config } from "./config";
+import { common } from "./common";
 
 export const geo_common = {
   getDefaultStyle: function() {
@@ -26,14 +28,52 @@ export const geo_common = {
     return style;
   },
 
-  addLayer: function(name) {
-    return new VectorLayer({
+  getLayerOption: function(name) {
+    return common.getFromList(config.layers, 'name', name);
+  },
+
+  addLayer: function(name, map, source=null) {
+    if (!source) {
+      source = new VectorSource({
+        projection : `EPSG:${config.map.srid}`,
+      });
+    }
+    const layer = new VectorLayer({
       name: name,
-      source: new VectorSource({
-         projection : `EPSG:${config.map.srid}`,
-      }),
+      source: source,
       style: this.getDefaultStyle(),
     });
+    map.addLayer(layer);
+    return layer
+  },
+
+  addLayerGeoJson: function(name, map, geoJson, srid=null) {
+    if (!srid) {
+      srid = config.map.srid;
+    }
+    // レイヤーを取得
+    let layer = this.getLayerByName(name, map);
+    if (!layer) {
+      layer = this.addLayer(name, map);
+    }
+    // 既存のフィーチャーを消す
+    layer.getSource().clear();
+    // GeoJSONを追加
+    let format = new GeoJSON();
+    var feature = format.readFeatures(geoJson, {
+      dataProjection: `EPSG:${srid}`,
+      featureProjection: `EPSG:${config.map.srid}`,
+    });
+    layer.getSource().addFeatures(feature);
+    return layer;
+  },
+
+  clearLayer: function(name, map) {
+    const layer = this.getLayerByName(name, map);
+    if (layer) {
+      // 既存のフィーチャーを消す
+      layer.getSource().clear();
+    }
   },
 
   getLayerByName: function(name, map) {
