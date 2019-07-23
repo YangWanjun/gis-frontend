@@ -1,11 +1,10 @@
 import React from "react";
 import OlMap from "ol/Map";
 import OlView from "ol/View";
-import {Tile as OlLayerTile, Vector as VectorLayer} from "ol/layer";
+import {Tile as OlLayerTile} from "ol/layer";
 import {
   OSM as OlSourceOSM,
   BingMaps as OlBingMaps,
-  Vector as VectorSource,
 } from "ol/source";
 import {
   defaults as defaultControls,
@@ -16,7 +15,7 @@ import {
   defaults as defaultInteraction,
   MouseWheelZoom,
 } from 'ol/interaction';
-import { WKT } from 'ol/format';
+import { WKT, GeoJSON } from 'ol/format';
 import { createStringXY } from 'ol/coordinate';
 import withStyles from "@material-ui/core/styles/withStyles";
 import {
@@ -24,21 +23,24 @@ import {
   Radio,
   RadioGroup,
   FormControlLabel,
+  FormControl,
   TextField,
   Tabs,
   Tab,
   Button,
-  FormControl,
   ExpansionPanel,
   ExpansionPanelSummary,
   ExpansionPanelDetails,
   Typography,
+  FormGroup,
+  Checkbox,
 } from '@material-ui/core';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import TabPanel from './component/TabPanel';
-import { config, common, constant } from './utils';
+import { config, common, geo_common, constant } from './utils';
 import hljs from 'highlight.js/lib/highlight';
 import json from 'highlight.js/lib/languages/json';
+
 hljs.registerLanguage('json', json);
 
 const styles = (theme) => ({
@@ -86,7 +88,7 @@ function wktTabProps(index) {
 
 class GisMap extends React.Component {
   baseLayers = [];
-  vectorLayer = null;
+  wktVectorLayer = null;
   
   constructor(props) {
     super(props);
@@ -202,27 +204,23 @@ class GisMap extends React.Component {
   };
 
   addWktFeature = (id, wkt, srid) => {
-    if (!this.vectorLayer) {
-      this.vectorLayer = new VectorLayer({
-        source: new VectorSource(),
-        style: common.getDefaultStyle(),
-      });
-      this.olmap.addLayer(this.vectorLayer);
+    if (!this.wktVectorLayer) {
+      this.wktVectorLayer = geo_common.addLayer('wkt_layer');
+      this.olmap.addLayer(this.wktVectorLayer);
     }
     var format = new WKT();
-
     var feature = format.readFeature(wkt, {
       dataProjection: `EPSG:${srid}`,
       featureProjection: `EPSG:${config.map.srid}`,
     });
     feature.setId(id);
-    this.vectorLayer.getSource().addFeature(feature);
+    this.wktVectorLayer.getSource().addFeature(feature);
     return feature;
   };
 
   removeWktFeature = (id) => {
-    if (this.vectorLayer) {
-      const vectorSource = this.vectorLayer.getSource();
+    if (this.wktVectorLayer) {
+      const vectorSource = this.wktVectorLayer.getSource();
       const feature = vectorSource.getFeatureById(id);
       if (feature) {
         vectorSource.removeFeature(feature);
@@ -231,8 +229,8 @@ class GisMap extends React.Component {
   };
 
   clearWktFeature = () => {
-    if (this.vectorLayer) {
-      const vectorSource = this.vectorLayer.getSource();
+    if (this.wktVectorLayer) {
+      const vectorSource = this.wktVectorLayer.getSource();
       vectorSource.clear();
     }
   };
@@ -269,6 +267,21 @@ class GisMap extends React.Component {
 
   handleClearWkt = () => {
     this.clearWktFeature();
+  };
+
+  handleBoundaryChange = (boundary) => (event) => {
+    let pref_layer = geo_common.getLayerByName('pref_layer', this.olmap);
+    if (!pref_layer) {
+      pref_layer = geo_common.addLayer('pref_layer');
+      this.olmap.addLayer(pref_layer);
+    }
+    let format = new GeoJSON();
+    var feature = format.readFeatures(constant.GeoJSON.PREF, {
+      dataProjection: `EPSG:4326`,
+      featureProjection: `EPSG:${config.map.srid}`,
+    });
+    pref_layer.getSource().addFeatures(feature);
+    // this.olmap.getView().fit(feature.getGeometry(), this.olmap.getSize());
   };
 
   outputMapInfo = () => {
@@ -391,6 +404,37 @@ class GisMap extends React.Component {
                     すべてクリア
                   </Button>
                 </div>
+              </div>
+            </ExpansionPanelDetails>
+          </ExpansionPanel>
+          <ExpansionPanel
+            expanded={expanded === 'boundary'}
+            onChange={this.handleExpansionChange('boundary')}
+            aria-controls="panel3bh-content"
+            id="panel3bh-header"
+          >
+            <ExpansionPanelSummary
+              expandIcon={<ExpandMoreIcon />}
+              className={classes.expansionHeader}
+            >
+              <Typography className={classes.heading}>境界データ</Typography>
+            </ExpansionPanelSummary>
+            <ExpansionPanelDetails>
+              <div>
+                <FormGroup row>
+                  <FormControlLabel
+                    control={<Checkbox onChange={this.handleBoundaryChange('pref')} />}
+                    label="都道府県"
+                  />
+                  <FormControlLabel
+                    control={<Checkbox />}
+                    label="市区町村"
+                  />
+                  <FormControlLabel
+                    control={<Checkbox />}
+                    label="大字町丁目"
+                  />
+                </FormGroup>
               </div>
             </ExpansionPanelDetails>
           </ExpansionPanel>

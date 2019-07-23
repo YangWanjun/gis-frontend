@@ -1,10 +1,4 @@
 import { sprintf, vsprintf } from 'sprintf-js';
-import {
-  Style,
-  Stroke,
-  Fill,
-  Circle,
-} from 'ol/style';
 import { config } from './index';
 
 export const common = {
@@ -34,20 +28,4 @@ export const common = {
     }
   },
 
-  getDefaultStyle: function() {
-    const style = new Style({
-      image: new Circle({
-        radius: 6,
-        fill: new Fill({color: 'white'}),
-        stroke: new Stroke({
-          color: [0, 0 , 255], width: 2
-        })
-      }),
-      stroke: new Stroke({ color: '#0000FF' }),
-      fill: new Fill({
-        color: 'rgba(255, 255, 255, 0.3)',
-      })
-    });
-    return style;
-  },
 };
