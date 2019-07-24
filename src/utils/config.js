@@ -11,15 +11,15 @@ export const config = {
   layers: [
     {
       name: 'pref_layer',
-      url: hostApi + '/api/addr/pref',
+      url: hostApi + '/api/addr/pref/layer',
     },
     {
       name: 'city_layer',
-      url: hostApi + '/api/addr/city',
+      url: hostApi + '/api/addr/city/layer',
     },
     {
       name: 'chome_layer',
-      url: hostApi + '/api/addr/chome',
+      url: hostApi + '/api/addr/chome/layer',
     },
   ],
 };
