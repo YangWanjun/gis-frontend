@@ -14,6 +14,7 @@ import {
 import {
   defaults as defaultInteraction,
   MouseWheelZoom,
+  Draw,
 } from 'ol/interaction';
 import { WKT } from 'ol/format';
 import { createStringXY } from 'ol/coordinate';
@@ -50,15 +51,18 @@ const styles = (theme) => ({
   },
   mapInfo: {
     width: '100%',
+    maxHeight: 300,
+    overflowY: 'scroll',
   },
   button: {
+    marginTop: theme.spacing(1),
     marginRight: theme.spacing(1),
   },
   FormControl: {
     width: '100%',
   },
   expansionHeader: {
-    borderBottom: '1px dotted rgba(0, 0, 0, 0.1)',
+    // borderBottom: '1px dotted rgba(0, 0, 0, 0.1)',
   },
   heading: {
     fontSize: theme.typography.pxToRem(15),
@@ -88,7 +92,10 @@ function wktTabProps(index) {
 
 class GisMap extends React.Component {
   baseLayers = [];
-  wktVectorLayer = null;
+  wktLayer = null;
+  drawLayer = null;
+  serverLayers = [];
+  draw = null;
   
   constructor(props) {
     super(props);
@@ -109,6 +116,7 @@ class GisMap extends React.Component {
       },
       wktTabIndex: 0,
       expanded: 'basemap',
+      logs: [],
     };
 
     mapNames.map(name => {
@@ -168,20 +176,22 @@ class GisMap extends React.Component {
     this.olmap.on("moveend", () => {
       const center = this.olmap.getView().getCenter();
       const zoom = this.olmap.getView().getZoom();
-      const boundary = this.olmap.getView().calculateExtent();
+      const boundaryArray = this.olmap.getView().calculateExtent();
+      const boundary = {
+        left: common.round(boundaryArray[0]),
+        bottom: common.round(boundaryArray[1]),
+        right: common.round(boundaryArray[2]),
+        top: common.round(boundaryArray[3]),
+      };
       this.setState({
         center: [
           common.round(center[0]),
           common.round(center[1]),
         ],
         zoom,
-        boundary: {
-          left: common.round(boundary[0]),
-          bottom: common.round(boundary[1]),
-          right: common.round(boundary[2]),
-          top: common.round(boundary[3]),
-        }
+        boundary: boundary,
       });
+      geo_common.reloadLayers(this.olmap, this.serverLayers, zoom, boundary);
     });
 
     this.updateCodeSyntaxHighlighting();
@@ -204,8 +214,8 @@ class GisMap extends React.Component {
   };
 
   addWktFeature = (id, wkt, srid) => {
-    if (!this.wktVectorLayer) {
-      this.wktVectorLayer = geo_common.addLayer('wkt_layer', this.olmap);
+    if (!this.wktLayer) {
+      this.wktLayer = geo_common.addLayer('wkt_layer', this.olmap);
     }
     var format = new WKT();
     var feature = format.readFeature(wkt, {
@@ -213,13 +223,13 @@ class GisMap extends React.Component {
       featureProjection: `EPSG:${config.map.srid}`,
     });
     feature.setId(id);
-    this.wktVectorLayer.getSource().addFeature(feature);
+    this.wktLayer.getSource().addFeature(feature);
     return feature;
   };
 
   removeWktFeature = (id) => {
-    if (this.wktVectorLayer) {
-      const vectorSource = this.wktVectorLayer.getSource();
+    if (this.wktLayer) {
+      const vectorSource = this.wktLayer.getSource();
       const feature = vectorSource.getFeatureById(id);
       if (feature) {
         vectorSource.removeFeature(feature);
@@ -228,8 +238,8 @@ class GisMap extends React.Component {
   };
 
   clearWktFeature = () => {
-    if (this.wktVectorLayer) {
-      const vectorSource = this.wktVectorLayer.getSource();
+    if (this.wktLayer) {
+      const vectorSource = this.wktLayer.getSource();
       vectorSource.clear();
     }
   };
@@ -274,12 +284,43 @@ class GisMap extends React.Component {
       const layer_option = geo_common.getLayerOption(layer_name);
       if (layer_option) {
         common.fetchGet(layer_option.url, {zoom, boundary}).then(data => {
-          geo_common.addLayerGeoJson(layer_name, this.olmap, data);
+          const layer = geo_common.addLayerGeoJson(layer_name, this.olmap, data);
+          this.serverLayers.push(layer);
         }).catch(data => {
         });
       }
     } else {
-      geo_common.clearLayer(layer_name, this.olmap);
+      const layer = geo_common.clearLayer(layer_name, this.olmap);
+      if (layer) {
+        const index = this.serverLayers.indexOf(layer);
+        if (index >= 0) {
+          this.serverLayers.splice(index, 1);
+        }
+      }
+    }
+  };
+
+  handleDrawTypeChange = (event) => {
+    const drawType = event.target.value;
+    if (!this.drawLayer) {
+      this.drawLayer = geo_common.addLayer('draw_layer', this.olmap);
+    }
+    this.olmap.removeInteraction(this.draw);
+    if (drawType) {
+      this.draw = new Draw({
+        source: this.drawLayer.getSource(),
+        type: drawType
+      });
+      this.draw.on('drawend', (event) => {
+        var feature = event.feature;
+        var coordinates = feature.getGeometry().getCoordinates();
+        this.setState(state => {
+          let logs = state.logs;
+          logs.push(coordinates);
+          return {logs};
+        })
+      });
+      this.olmap.addInteraction(this.draw);
     }
   };
 
@@ -292,11 +333,13 @@ class GisMap extends React.Component {
     document.querySelectorAll("pre code").forEach(block => {
       hljs.highlightBlock(block);
     });
+    var mapInfo = document.getElementById("mapInfo");
+    mapInfo.scrollTop = mapInfo.scrollHeight;
   };
 
   render() {
     const { classes } = this.props;
-    const { data, wktTabIndex, expanded } = this.state;
+    const { data, wktTabIndex, expanded, logs } = this.state;
 
     return (
       <Grid container spacing={1}>
@@ -311,7 +354,21 @@ class GisMap extends React.Component {
                 <code className='json'>
                   {this.outputMapInfo()}
                 </code>
+                {logs.map((log, key) => (
+                  <code key={key} className='json'>
+                    {JSON.stringify(log, null, '    ')}
+                  </code>
+                ))}
               </pre>
+            </div>
+            <div>
+              <Button
+                variant="contained"
+                className={classes.button}
+                onClick={() => { this.setState({logs: []}) }}
+              >
+                クリア
+              </Button>
             </div>
           </Grid>
         </Grid>
@@ -407,10 +464,47 @@ class GisMap extends React.Component {
             </ExpansionPanelDetails>
           </ExpansionPanel>
           <ExpansionPanel
-            expanded={expanded === 'boundary'}
-            onChange={this.handleExpansionChange('boundary')}
+            expanded={expanded === 'draw'}
+            onChange={this.handleExpansionChange('draw')}
             aria-controls="panel3bh-content"
             id="panel3bh-header"
+          >
+            <ExpansionPanelSummary
+              expandIcon={<ExpandMoreIcon />}
+              className={classes.expansionHeader}
+            >
+              <Typography className={classes.heading}>図形描画</Typography>
+            </ExpansionPanelSummary>
+            <ExpansionPanelDetails>
+              <div>
+                <RadioGroup
+                  name='draw'
+                  row={true}
+                  onChange={this.handleDrawTypeChange}
+                >
+                  <FormControlLabel control={<Radio />} label='なし' value='' />
+                  <FormControlLabel control={<Radio />} label='点' value='Point' />
+                  <FormControlLabel control={<Radio />} label='線' value='LineString' />
+                  <FormControlLabel control={<Radio />} label='ポリゴン' value='Polygon' />
+                  <FormControlLabel control={<Radio />} label='円' value='Circle' />
+                </RadioGroup>
+                <div>
+                  <Button
+                    variant="contained"
+                    className={classes.button}
+                    onClick={() => {geo_common.clearLayer('draw_layer', this.olmap)}}
+                  >
+                    クリア
+                  </Button>
+                </div>
+              </div>
+            </ExpansionPanelDetails>
+          </ExpansionPanel>
+          <ExpansionPanel
+            expanded={expanded === 'boundary'}
+            onChange={this.handleExpansionChange('boundary')}
+            aria-controls="panel4bh-content"
+            id="panel4bh-header"
           >
             <ExpansionPanelSummary
               expandIcon={<ExpandMoreIcon />}

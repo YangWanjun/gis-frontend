@@ -171,7 +171,6 @@ export const common = {
       }
     }
 
-    console.log(url);
     url = this.addUrlParameter(url, {'format': 'json'});
     return fetch(url, requestOptions)
       .then(this.handleStatus)

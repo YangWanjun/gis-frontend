@@ -74,6 +74,7 @@ export const geo_common = {
       // 既存のフィーチャーを消す
       layer.getSource().clear();
     }
+    return layer;
   },
 
   getLayerByName: function(name, map) {
@@ -84,5 +85,19 @@ export const geo_common = {
       }            
     });
     return layer;
+  },
+
+  reloadLayers: function(map, layers, zoom, boundary) {
+    const self = this;
+    layers.map(layer => {
+      const layer_name = layer.get('name');
+      const layer_option = self.getLayerOption(layer_name);
+      common.fetchGet(layer_option.url, {zoom, boundary}).then(data => {
+        self.clearLayer(layer_name, map);
+        self.addLayerGeoJson(layer_name, map, data);
+      }).catch(data => {
+      });
+      return true;
+    })
   },
 };
