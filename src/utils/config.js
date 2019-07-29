@@ -6,7 +6,7 @@ export const config = {
     srid: 4326,
     center: [139.692101, 35.689634],
     zoom: 13,
-    precision: 6,
+    precision: 7,
   },
   layers: [
     {

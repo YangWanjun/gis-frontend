@@ -1,5 +1,6 @@
 import { Vector as VectorLayer } from "ol/layer";
 import { Vector as VectorSource } from 'ol/source';
+import { getDistance, getArea, getLength } from 'ol/sphere';
 import { GeoJSON } from 'ol/format';
 import {
   Style,
@@ -99,5 +100,26 @@ export const geo_common = {
       });
       return true;
     })
+  },
+
+  getPointsDistance: function(point1, point2) {
+    return getDistance(point1, point2);
+  },
+
+  getLength: function(geom) {
+    return getLength(geom, {
+      projection: `EPSG:${config.map.srid}`,
+    });
+  },
+
+  getArea: function(geom) {
+    if (geom.getType() === 'Circle') {
+      const radius = this.getPointsDistance(geom.getFirstCoordinate(), geom.getLastCoordinate());
+      return Math.PI * radius * radius;
+    } else {
+      return getArea(geom, {
+        projection: `EPSG:${config.map.srid}`,
+      });
+    }
   },
 };

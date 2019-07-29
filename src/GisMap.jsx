@@ -16,6 +16,7 @@ import {
   MouseWheelZoom,
   Draw,
 } from 'ol/interaction';
+import {createRegularPolygon, createBox} from 'ol/interaction/Draw';
 import { WKT } from 'ol/format';
 import { createStringXY } from 'ol/coordinate';
 import withStyles from "@material-ui/core/styles/withStyles";
@@ -78,6 +79,11 @@ const styles = (theme) => ({
     width: '100%',
     backgroundColor: theme.palette.background.paper,
   },
+  mousePosition: {
+    bottom: theme.spacing(1),
+    right: theme.spacing(1),
+    position: 'absolute',
+  }
 })
 
 const mapNames = ['Road', 'AerialWithLabels', 'OSM'];
@@ -156,6 +162,7 @@ class GisMap extends React.Component {
         new MousePosition({
           projection: `EPSG:${config.map.srid}`,
           coordinateFormat: createStringXY(config.map.precision),
+          className: props.classes.mousePosition,
         }),
       ]),
       interactions: defaultInteraction({mouseWheelZoom: false}).extend([
@@ -166,12 +173,22 @@ class GisMap extends React.Component {
     });
   }
 
+  componentWillMount() {
+    window.navigator.geolocation.getCurrentPosition((pos) => {
+      console.log(pos);
+      this.olmap.getView().setCenter([
+        pos.coords.longitude,
+        pos.coords.latitude
+      ]);
+    });
+  }
+
   componentDidMount() {
     this.olmap.setTarget("map");
     this.baseLayers.map((layer, idx) => (
       layer.setVisible(idx === 0)
     ));
-
+    
     // Listen to map changes
     this.olmap.on("moveend", () => {
       const center = this.olmap.getView().getCenter();
@@ -301,24 +318,52 @@ class GisMap extends React.Component {
   };
 
   handleDrawTypeChange = (event) => {
-    const drawType = event.target.value;
+    const value = event.target.value
+    let drawType = event.target.value;
     if (!this.drawLayer) {
       this.drawLayer = geo_common.addLayer('draw_layer', this.olmap);
     }
     this.olmap.removeInteraction(this.draw);
     if (drawType) {
+      let geometryFunction = null;
+      if (drawType === 'Square') {
+        drawType = 'Circle';
+        geometryFunction = createRegularPolygon(4);
+      } else if (drawType === 'Box') {
+        drawType = 'Circle';
+        geometryFunction = createBox(4);
+      }
       this.draw = new Draw({
         source: this.drawLayer.getSource(),
-        type: drawType
+        type: drawType,
+        geometryFunction: geometryFunction,
       });
       this.draw.on('drawend', (event) => {
         var feature = event.feature;
-        var coordinates = feature.getGeometry().getCoordinates();
+        const geom = feature.getGeometry();
+        window.geom = geom;
+        var coordinates = geom.getCoordinates();
+        if (value === 'Circle') {
+          coordinates = {
+            'center': geom.getCenter(),
+            'radius': {
+              'degrees': geom.getRadius(),
+              'meters': geo_common.getPointsDistance(geom.getFirstCoordinate(), geom.getLastCoordinate()),
+            },
+            'area': geo_common.getArea(geom),
+            'boundary': geom.getExtent(),
+          };
+        } else if (value === 'LineString') {
+          coordinates = {
+            'distance': geo_common.getLength(geom),
+            'coordinates': coordinates,
+          }
+        }
         this.setState(state => {
           let logs = state.logs;
           logs.push(coordinates);
           return {logs};
-        })
+        });
       });
       this.olmap.addInteraction(this.draw);
     }
@@ -483,10 +528,12 @@ class GisMap extends React.Component {
                   onChange={this.handleDrawTypeChange}
                 >
                   <FormControlLabel control={<Radio />} label='なし' value='' />
-                  <FormControlLabel control={<Radio />} label='点' value='Point' />
-                  <FormControlLabel control={<Radio />} label='線' value='LineString' />
-                  <FormControlLabel control={<Radio />} label='ポリゴン' value='Polygon' />
-                  <FormControlLabel control={<Radio />} label='円' value='Circle' />
+                  <FormControlLabel control={<Radio />} label='Point' value='Point' />
+                  <FormControlLabel control={<Radio />} label='Line' value='LineString' />
+                  <FormControlLabel control={<Radio />} label='Polygon' value='Polygon' />
+                  <FormControlLabel control={<Radio />} label='Circle' value='Circle' />
+                  <FormControlLabel control={<Radio />} label='Square' value='Square' />
+                  <FormControlLabel control={<Radio />} label='Box' value='Box' />
                 </RadioGroup>
                 <div>
                   <Button
